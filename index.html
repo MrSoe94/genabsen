@@ -716,6 +716,28 @@
     <!-- Printable Container for Direct Browser Printing -->
     <div id="directPrintArea" class="print-only print-container"></div>
 
+    <!-- Loader / Progress Overlay -->
+    <div id="appLoader" class="hidden fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-lg shrink-0">
+                    <i id="appLoaderIcon" class="fa-solid fa-cloud-arrow-down animate-bounce"></i>
+                </div>
+                <div class="min-w-0">
+                    <h3 id="appLoaderTitle" class="text-sm font-bold text-slate-800 truncate">Memuat data...</h3>
+                    <p id="appLoaderText" class="text-xs text-slate-500 truncate">Mohon tunggu sebentar</p>
+                </div>
+            </div>
+            <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div id="appLoaderBar" class="h-full bg-gradient-to-r from-indigo-500 to-sky-500 rounded-full transition-all duration-200 ease-out" style="width:0%"></div>
+            </div>
+            <div class="flex justify-between items-center mt-2 text-xs">
+                <span id="appLoaderCount" class="text-slate-400"></span>
+                <span id="appLoaderPct" class="font-bold text-indigo-600">0%</span>
+            </div>
+        </div>
+    </div>
+
     <script>
         let appData = {
             currentClassId: 'class_1',
@@ -1657,6 +1679,65 @@
             document.getElementById(id).classList.add('hidden');
         }
 
+        /* =========================================================================
+           LOADER / PROGRESS (indikator %)
+           ========================================================================= */
+        let appLoaderTimer = null;
+        let appLoaderValue = 0;
+
+        function updateLoaderUI() {
+            const pct = Math.round(appLoaderValue);
+            const bar = document.getElementById('appLoaderBar');
+            if (bar) bar.style.width = pct + '%';
+            const pctEl = document.getElementById('appLoaderPct');
+            if (pctEl) pctEl.textContent = pct + '%';
+        }
+
+        function showLoader(title, text, icon) {
+            appLoaderValue = 0;
+            const el = document.getElementById('appLoader');
+            const t = document.getElementById('appLoaderTitle');
+            const s = document.getElementById('appLoaderText');
+            const c = document.getElementById('appLoaderCount');
+            const ic = document.getElementById('appLoaderIcon');
+            if (t) t.textContent = title || 'Memuat data...';
+            if (s) s.textContent = text || 'Mohon tunggu sebentar';
+            if (c) c.textContent = '';
+            if (ic) ic.className = (icon || 'fa-solid fa-cloud-arrow-down') + ' animate-bounce';
+            updateLoaderUI();
+            if (el) el.classList.remove('hidden');
+
+            if (appLoaderTimer) clearInterval(appLoaderTimer);
+            appLoaderTimer = setInterval(function () {
+                if (appLoaderValue < 90) {
+                    appLoaderValue += Math.max(0.6, (90 - appLoaderValue) * 0.06);
+                    if (appLoaderValue > 90) appLoaderValue = 90;
+                    updateLoaderUI();
+                }
+            }, 180);
+        }
+
+        function setLoaderProgress(pct, text, countText) {
+            const clamped = Math.max(0, Math.min(100, pct));
+            appLoaderValue = Math.max(appLoaderValue, clamped);
+            if (typeof text === 'string') {
+                const s = document.getElementById('appLoaderText');
+                if (s) s.textContent = text;
+            }
+            if (typeof countText === 'string') {
+                const c = document.getElementById('appLoaderCount');
+                if (c) c.textContent = countText;
+            }
+            updateLoaderUI();
+        }
+
+        function hideLoader(delay) {
+            if (appLoaderTimer) { clearInterval(appLoaderTimer); appLoaderTimer = null; }
+            const el = document.getElementById('appLoader');
+            const doHide = function () { if (el) el.classList.add('hidden'); };
+            if (delay) setTimeout(doHide, delay); else doHide();
+        }
+
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toastNotification');
             const msgEl = document.getElementById('toastMessage');
@@ -1816,6 +1897,7 @@
             showToast('Menyinkronkan kelas dari Dapodik...', 'info');
             setDapodikStatus('loading', 'Menyinkronkan kelas...');
             ensureDapodikBridgeFrame(true);
+            showLoader('Sinkron Kelas dari Dapodik', 'Menarik data rombel, siswa, dan wali kelas...');
 
             Promise.all([
                 dapodikFetch('getPesertaDidik', 30000),
@@ -1825,6 +1907,8 @@
                 const rows = results[0] || [];
                 const rombelRows = results[1] || [];
                 const gtkRows = results[2] || [];
+
+                setLoaderProgress(70, 'Memproses rombel dan peserta didik...', rows.length + ' siswa diterima');
 
                 const waliList = buildDapodikWaliList(rombelRows, gtkRows);
                 const waliByName = {};
@@ -1881,8 +1965,11 @@
                 let msg = 'Sinkron Dapodik: ' + createdClasses + ' kelas baru, ' + addedStudents + ' siswa';
                 if (waliFilled) msg += ', ' + waliFilled + ' wali kelas';
                 if (skipped) msg += ', ' + skipped + ' duplikat dilewati';
+                setLoaderProgress(100, 'Selesai!', addedStudents + ' siswa \u2022 ' + createdClasses + ' kelas baru');
+                hideLoader(700);
                 showToast(msg + '.', 'success');
             }).catch(function (err) {
+                hideLoader();
                 setDapodikStatus('error', 'Gagal sinkron kelas');
                 showToast('Gagal: ' + err.message, 'error');
             });
@@ -1893,6 +1980,7 @@
             showToast('Menyinkronkan wali kelas dari Dapodik...', 'info');
             setDapodikStatus('loading', 'Menyinkronkan wali kelas...');
             ensureDapodikBridgeFrame(true);
+            showLoader('Sinkron Wali Kelas dari Dapodik', 'Menarik data rombel dan guru (GTK)...');
 
             Promise.all([
                 dapodikFetch('getRombonganBelajar', 30000),
@@ -1900,6 +1988,9 @@
             ]).then(function (results) {
                 const rombelRows = results[0] || [];
                 const gtkRows = results[1] || [];
+
+                setLoaderProgress(70, 'Memetakan wali kelas...', rombelRows.length + ' rombel \u2022 ' + gtkRows.length + ' guru');
+
                 const waliList = buildDapodikWaliList(rombelRows, gtkRows);
 
                 let created = 0, updated = 0, named = 0;
@@ -1931,8 +2022,11 @@
                 if (created) msg += ', ' + created + ' kelas baru dibuat';
                 if (updated) msg += ', ' + updated + ' diperbarui';
                 if (!named) msg = 'Sinkron wali kelas: tidak ada data wali kelas yang dikembalikan Dapodik.';
+                setLoaderProgress(100, 'Selesai!', named + ' wali kelas terisi');
+                hideLoader(700);
                 showToast(msg + '.', 'success');
             }).catch(function (err) {
+                hideLoader();
                 setDapodikStatus('error', 'Gagal sinkron wali kelas');
                 showToast('Gagal: ' + err.message, 'error');
             });
@@ -2198,12 +2292,16 @@
             showToast('Mengambil data peserta didik dari Dapodik...', 'info');
             setDapodikStatus('loading', 'Mengambil data siswa...');
             ensureDapodikBridgeFrame(true);
+            showLoader('Menarik Data Siswa dari Dapodik', 'Menghubungkan ke ' + (getDapodikHost() || 'Dapodik') + '...');
 
             dapodikFetch('getPesertaDidik', 30000).then(function (rows) {
                 dapodikLoadedRows = rows || [];
                 dapodikRombelData = {};
                 dapoSelected.clear();
                 resetPager('dapoRombel');
+
+                setLoaderProgress(60, 'Memproses data peserta didik...', dapodikLoadedRows.length + ' baris diterima');
+
                 dapodikLoadedRows.forEach(function (pd) {
                     const rombel = ((pd.nama_rombel || '') + '').trim() || '(Tanpa Rombel)';
                     if (!dapodikRombelData[rombel]) dapodikRombelData[rombel] = { tingkat: '', students: [] };
@@ -2214,8 +2312,11 @@
                 });
                 renderDapodikRombelList();
                 setDapodikStatus('ready', 'Bridge terhubung - ' + getDapodikHost());
+                setLoaderProgress(100, 'Selesai!', dapodikLoadedRows.length + ' siswa \u2022 ' + Object.keys(dapodikRombelData).length + ' rombel');
+                hideLoader(700);
                 showToast(dapodikLoadedRows.length + ' data siswa berhasil ditarik dari Dapodik.', 'success');
             }).catch(function (err) {
+                hideLoader();
                 setDapodikStatus('error', 'Gagal mengambil data');
                 showToast('Gagal: ' + err.message, 'error');
             });
