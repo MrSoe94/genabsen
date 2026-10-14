@@ -514,7 +514,22 @@
                 <h3 class="text-base font-bold text-slate-800 mb-4 flex items-center">
                     <i class="fa-solid fa-sliders mr-2 text-indigo-600"></i> Pengaturan Kop & Tanda Tangan Laporan Resmi
                 </h3>
-                
+
+                <div class="mb-5 flex flex-col sm:flex-row sm:items-end gap-3 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                    <div class="w-full sm:w-80">
+                        <label for="repClassSelect" class="block text-xs font-semibold text-indigo-700 mb-1">
+                            <i class="fa-solid fa-chalkboard-user mr-1"></i> Kelas Aktif (Sumber Data Laporan)
+                        </label>
+                        <select id="repClassSelect" onchange="selectReportClass(this.value)" class="w-full bg-white border border-indigo-300 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <p class="text-[11px] text-indigo-500 mb-1.5 flex-1">
+                        Nama & NIP Wali Kelas diambil otomatis dari kelas aktif yang dipilih. Data wali kelas dapat diubah pada tab
+                        <span class="font-semibold">Wali Kelas</span>.
+                    </p>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Sekolah / Instansi</label>
@@ -553,7 +568,7 @@
 
                 <div class="mt-5 pt-4 border-t border-slate-200 flex flex-wrap justify-end gap-3">
                     <button onclick="fillReportFromWaliKelas()" class="bg-sky-600 hover:bg-sky-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow-sm flex items-center">
-                        <i class="fa-solid fa-chalkboard-user mr-1.5"></i> Isi dari Wali Kelas Aktif
+                        <i class="fa-solid fa-rotate mr-1.5"></i> Muat Ulang dari Kelas Aktif
                     </button>
                     <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow-sm flex items-center">
                         <i class="fa-solid fa-file-excel mr-1.5"></i> Export ke Excel (.xlsx)
@@ -863,7 +878,7 @@
             if (tabName === 'classes') renderClassesList();
             if (tabName === 'walikelas') renderWaliKelasList();
             if (tabName === 'dapodik') renderDapodikTab();
-            if (tabName === 'report') updateReportPreview();
+            if (tabName === 'report') { syncReportFromActiveClass(); updateReportPreview(); }
         }
 
         /* =========================================================================
@@ -1842,17 +1857,65 @@
             showToast('Wali kelas berhasil disimpan.', 'success');
         }
 
+        function formatNip(nip) {
+            const v = ((nip || '') + '').trim();
+            if (!v) return '';
+            return /^nip/i.test(v) ? v : ('NIP. ' + v);
+        }
+
+        function renderReportClassSelect() {
+            const sel = document.getElementById('repClassSelect');
+            if (!sel) return;
+            sel.innerHTML = '';
+            if (appData.classes.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'Belum ada kelas';
+                sel.appendChild(opt);
+                return;
+            }
+            appData.classes.forEach(function (c) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                if (c.id === appData.currentClassId) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        function syncReportFromActiveClass() {
+            const cls = appData.classes.find(function (c) { return c.id === appData.currentClassId; });
+            const wk = waliKelasOf(cls);
+            document.getElementById('repTeacherName').value = wk.name || '';
+            document.getElementById('repTeacherNip').value = formatNip(wk.nip);
+            renderReportClassSelect();
+        }
+
+        function selectReportClass(classId) {
+            if (!classId || classId === appData.currentClassId) {
+                syncReportFromActiveClass();
+                updateReportPreview();
+                return;
+            }
+            const cls = appData.classes.find(function (c) { return c.id === classId; });
+            appData.currentClassId = classId;
+            generateMockDataIfEmpty(classId);
+            renderClassSelect();
+            syncReportFromActiveClass();
+            updateReportPreview();
+            if (cls) showToast('Kelas laporan: ' + cls.name, 'success');
+        }
+
         function fillReportFromWaliKelas() {
+            syncReportFromActiveClass();
+            updateReportPreview();
             const cls = appData.classes.find(function (c) { return c.id === appData.currentClassId; });
             const wk = waliKelasOf(cls);
             if (!wk.name && !wk.nip) {
-                showToast('Kelas aktif belum memiliki wali kelas.', 'error');
+                showToast('Kelas aktif belum memiliki data wali kelas.', 'error');
                 return;
             }
-            if (wk.name) document.getElementById('repTeacherName').value = wk.name;
-            if (wk.nip) document.getElementById('repTeacherNip').value = wk.nip;
-            updateReportPreview();
-            showToast('Data wali kelas aktif dimasukkan ke laporan.', 'success');
+            showToast('Data wali kelas aktif dimuat ke laporan.', 'success');
         }
 
         /* =========================================================================
