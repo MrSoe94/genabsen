@@ -438,6 +438,9 @@
                     </div>
                 </div>
                 <div class="mt-4 flex flex-wrap justify-end gap-2">
+                    <button onclick="dapodikDebugWali()" class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2 rounded-xl text-xs transition">
+                        <i class="fa-solid fa-magnifying-glass-chart mr-1.5"></i> Diagnostik Data Wali
+                    </button>
                     <button onclick="saveDapodikConfig()" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-4 py-2 rounded-xl text-xs transition">
                         <i class="fa-solid fa-floppy-disk mr-1.5"></i> Simpan Pengaturan
                     </button>
@@ -445,6 +448,15 @@
                         <i class="fa-solid fa-download mr-1.5"></i> Muat Data Siswa
                     </button>
                 </div>
+            </div>
+
+            <!-- Diagnostic Panel -->
+            <div id="dapoDebugCard" class="bg-slate-900 rounded-2xl border border-slate-700 shadow-sm hidden">
+                <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700">
+                    <h3 class="text-sm font-bold text-amber-300 flex items-center"><i class="fa-solid fa-magnifying-glass-chart mr-2"></i> Diagnostik Data Wali Kelas</h3>
+                    <button onclick="document.getElementById('dapoDebugCard').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <pre id="dapoDebugPanel" class="text-[11px] leading-relaxed text-slate-200 font-mono p-5 overflow-auto max-h-96 custom-scroll whitespace-pre-wrap">Menarik data...</pre>
             </div>
 
             <!-- Result / Import -->
@@ -1923,8 +1935,81 @@
            ========================================================================= */
 
         function fetchDapodikGtk(timeoutMs) {
-            return dapodikFetch('getGtk', timeoutMs).catch(function () {
-                return dapodikFetch('getGTK', timeoutMs).catch(function () { return []; });
+            function attemptGtkCaps() {
+                return dapodikFetch('getGTK', timeoutMs).then(function (r2) {
+                    if (r2 && r2.length) return r2;
+                    return dapodikFetch('getPTK', timeoutMs);
+                });
+            }
+            return dapodikFetch('getGtk', timeoutMs).then(function (rows) {
+                if (rows && rows.length) return rows;
+                return attemptGtkCaps();
+            }).catch(function () {
+                return attemptGtkCaps();
+            }).catch(function () { return []; });
+        }
+
+        function dapodikDebugWali() {
+            const card = document.getElementById('dapoDebugCard');
+            const panel = document.getElementById('dapoDebugPanel');
+            if (!card || !panel) return;
+            card.classList.remove('hidden');
+            panel.textContent = 'Menarik data dari Dapodik...';
+
+            function tryFetch(ep) {
+                return dapodikFetch(ep, 30000).then(function (rows) {
+                    return { ep: ep, ok: true, rows: rows || [] };
+                }).catch(function (e) {
+                    return { ep: ep, ok: false, err: e.message || String(e) };
+                });
+            }
+
+            Promise.all([
+                tryFetch('getRombonganBelajar'),
+                tryFetch('getGtk'),
+                tryFetch('getGTK'),
+                tryFetch('getPTK')
+            ]).then(function (res) {
+                const rom = res[0];
+                const gtkWin = res[1].ok && res[1].rows.length ? res[1]
+                    : (res[2].ok && res[2].rows.length ? res[2]
+                        : (res[3].ok && res[3].rows.length ? res[3] : res[1].ok ? res[1] : res[2]));
+                const gtkRows = gtkWin && gtkWin.rows ? gtkWin.rows : [];
+
+                const out = [];
+                function line(s) { out.push(s); }
+                line('=== Ketersediaan Endpoint ===');
+                res.forEach(function (r) {
+                    line(r.ep + ': ' + (r.ok ? (r.rows.length + ' baris') : ('ERROR -> ' + r.err)));
+                });
+                line('');
+                line('=== Contoh 1 baris RombonganBelajar ===');
+                line(rom.ok && rom.rows[0]
+                    ? JSON.stringify({ nama: rom.rows[0].nama, ptk_id: rom.rows[0].ptk_id, ptk_id_str: rom.rows[0].ptk_id_str }, null, 2)
+                    : (rom.ok ? '(tidak ada baris)' : ('ERROR: ' + rom.err)));
+                line('');
+                line('=== Contoh 1 baris GTK (' + (gtkWin ? gtkWin.ep : '-') + ') ===');
+                line(gtkRows[0]
+                    ? JSON.stringify({ ptk_id: gtkRows[0].ptk_id, nama: gtkRows[0].nama, nip: gtkRows[0].nip, nuptk: gtkRows[0].nuptk }, null, 2)
+                    : '(tidak ada data GTK)');
+                line('');
+                line('=== Field yang tersedia pada baris GTK ===');
+                line(gtkRows[0] ? Object.keys(gtkRows[0]).join(', ') : '-');
+                line('');
+                line('=== Hasil pemetaan buildDapodikWaliList ===');
+                const waliList = buildDapodikWaliList(rom.ok ? rom.rows : [], gtkRows);
+                if (!waliList.length) line('(tidak ada rombel)');
+                waliList.forEach(function (w) {
+                    line('  ' + w.name + '  =>  ' + (w.wali
+                        ? ('Nama: ' + (w.wali.name || '(kosong)') + '  |  NIP: ' + (w.wali.nip || '(kosong)'))
+                        : '(wali tidak terdeteksi)'));
+                });
+                line('');
+                line('Ringkasan: ' + (rom.ok ? rom.rows.length : 0) + ' rombel, ' + gtkRows.length + ' baris GTK.');
+
+                panel.textContent = out.join('\n');
+            }).catch(function (e) {
+                panel.textContent = 'Gagal menjalankan diagnostik: ' + (e.message || e);
             });
         }
 
