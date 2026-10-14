@@ -1922,34 +1922,51 @@
            SINKRONISASI KELAS DARI DAPODIK (otomatis)
            ========================================================================= */
 
+        function fetchDapodikGtk(timeoutMs) {
+            return dapodikFetch('getGtk', timeoutMs).catch(function () {
+                return dapodikFetch('getGTK', timeoutMs).catch(function () { return []; });
+            });
+        }
+
         function buildDapodikWaliList(rombelRows, gtkRows) {
-            const gtkMap = {};
+            const gtkById = {};
+            const gtkByName = {};
             (gtkRows || []).forEach(function (g) {
-                const id = ((g.ptk_id || g.gtk_id || '') + '').trim();
-                if (!id) return;
-                gtkMap[id] = {
+                const id = ((g.ptk_id || g.gtk_id || g.ptk_terdaftar_id || '') + '').trim().toLowerCase();
+                const info = {
                     name: ((g.nama || '') + '').trim(),
-                    nip: ((g.nip || g.nuptk || '') + '').trim()
+                    nip: ((g.nip || g.nuptk || g.niy || '') + '').trim()
                 };
+                if (id) gtkById[id] = info;
+                const key = info.name.toLowerCase();
+                if (key && (!gtkByName[key] || (!gtkByName[key].nip && info.nip))) gtkByName[key] = info;
             });
 
             const list = [];
             (rombelRows || []).forEach(function (r) {
                 const nm = ((r.nama || '') + '').trim();
                 if (!nm) return;
-                const ptkId = ((r.ptk_id || '') + '').trim();
+
+                const ptkId = ((r.ptk_id || '') + '').trim().toLowerCase();
+                const rawName = ((r.ptk_id_str || r.nama_ptk || '') + '').trim();
+                const isIdLike = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(rawName) || /^[0-9a-f-]{24,}$/i.test(rawName);
+                const rombelWaliName = (!isIdLike && /[A-Za-z]/.test(rawName)) ? rawName : '';
+                const rombelWaliNip = ((r.nip_ptk || '') + '').trim();
+
                 let wali = null;
-                if (ptkId && gtkMap[ptkId]) {
-                    wali = gtkMap[ptkId];
-                } else if (((r.nama_ptk || '') + '').trim()) {
-                    wali = { name: ((r.nama_ptk || '') + '').trim(), nip: ((r.nip_ptk || '') + '').trim() };
-                } else {
-                    const ptkStr = ((r.ptk_id_str || '') + '').trim();
-                    const looksLikeId = /^[0-9a-f-]{8,}$/i.test(ptkStr);
-                    if (ptkStr && !looksLikeId && /[A-Za-z]/.test(ptkStr)) {
-                        wali = { name: ptkStr, nip: '' };
-                    }
+                if (ptkId && gtkById[ptkId]) {
+                    wali = { name: gtkById[ptkId].name || rombelWaliName, nip: gtkById[ptkId].nip || rombelWaliNip };
                 }
+                if (!wali && rombelWaliName && gtkByName[rombelWaliName.toLowerCase()]) {
+                    wali = { name: gtkByName[rombelWaliName.toLowerCase()].name, nip: gtkByName[rombelWaliName.toLowerCase()].nip };
+                }
+                if (!wali && (rombelWaliName || rombelWaliNip)) {
+                    wali = { name: rombelWaliName, nip: rombelWaliNip };
+                }
+                if (wali && wali.name && !wali.nip && gtkByName[wali.name.toLowerCase()]) {
+                    wali.nip = gtkByName[wali.name.toLowerCase()].nip;
+                }
+
                 list.push({ name: nm, wali: wali });
             });
             return list;
@@ -1965,7 +1982,7 @@
             Promise.all([
                 dapodikFetch('getPesertaDidik', 30000),
                 dapodikFetch('getRombonganBelajar', 30000).catch(function () { return []; }),
-                dapodikFetch('getGTK', 30000).catch(function () { return []; })
+                fetchDapodikGtk(30000)
             ]).then(function (results) {
                 const rows = results[0] || [];
                 const rombelRows = results[1] || [];
@@ -2047,7 +2064,7 @@
 
             Promise.all([
                 dapodikFetch('getRombonganBelajar', 30000),
-                dapodikFetch('getGTK', 30000).catch(function () { return []; })
+                fetchDapodikGtk(30000)
             ]).then(function (results) {
                 const rombelRows = results[0] || [];
                 const gtkRows = results[1] || [];
