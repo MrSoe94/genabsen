@@ -2019,7 +2019,7 @@
             (gtkRows || []).forEach(function (g) {
                 const id = ((g.ptk_id || g.gtk_id || g.ptk_terdaftar_id || '') + '').trim().toLowerCase();
                 const info = {
-                    name: ((g.nama || '') + '').trim(),
+                    name: toProperCase(((g.nama || '') + '').trim()),
                     nip: ((g.nip || g.nuptk || g.niy || '') + '').trim()
                 };
                 if (id) gtkById[id] = info;
@@ -2035,7 +2035,7 @@
                 const ptkId = ((r.ptk_id || '') + '').trim().toLowerCase();
                 const rawName = ((r.ptk_id_str || r.nama_ptk || '') + '').trim();
                 const isIdLike = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(rawName) || /^[0-9a-f-]{24,}$/i.test(rawName);
-                const rombelWaliName = (!isIdLike && /[A-Za-z]/.test(rawName)) ? rawName : '';
+                const rombelWaliName = (!isIdLike && /[A-Za-z]/.test(rawName)) ? toProperCase(rawName) : '';
                 const rombelWaliNip = ((r.nip_ptk || '') + '').trim();
 
                 let wali = null;
@@ -2257,6 +2257,15 @@
                 .replace(/'/g, '&#39;');
         }
 
+        function toProperCase(str) {
+            return ((str == null ? '' : String(str)))
+                .trim()
+                .toLowerCase()
+                .replace(/(^|[\s.'\-])([^\s.'\-])/g, function (m, sep, ch) {
+                    return sep + ch.toUpperCase();
+                });
+        }
+
         function getDapodikHost() {
             const el = document.getElementById('dapoHost');
             return (el ? el.value : '').trim().replace(/\/+$/, '');
@@ -2440,7 +2449,7 @@
         function mapPdToStudent(pd) {
             const nis = ((pd.nipd || pd.nisn || '') + '').trim();
             const nisn = ((pd.nisn || '') + '').trim();
-            const name = ((pd.nama || '') + '').trim();
+            const name = toProperCase(((pd.nama || '') + '').trim());
             const gender = (pd.jenis_kelamin === 'P' ? 'P' : 'L');
             const key = pd.peserta_didik_id || pd.registrasi_id || (nis + '_' + name);
             return {
