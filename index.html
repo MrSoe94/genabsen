@@ -25,11 +25,24 @@
         
         .print-only { display: none; }
 
-        /* Border hitam untuk tabel laporan resmi */
+        /* Border hitam untuk tabel laporan resmi (layar & cetak) */
         #printDocumentArea table,
         #printDocumentArea table th,
-        #printDocumentArea table td {
+        #printDocumentArea table td,
+        #directPrintArea table,
+        #directPrintArea table th,
+        #directPrintArea table td {
             border-color: #000 !important;
+        }
+        @media print {
+            #directPrintArea table,
+            #directPrintArea table th,
+            #directPrintArea table td {
+                border: 1px solid #000 !important;
+                border-color: #000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
 
         /* Custom Scrollbar for matrix table */
