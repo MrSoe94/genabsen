@@ -1608,11 +1608,11 @@
                     <td class="p-1 border font-medium">${s.name}</td>
                     <td class="p-1 border text-center">${s.gender}</td>
                     ${dayCells}
-                    <td class="p-1 border text-center font-bold">${cH}</td>
-                    <td class="p-1 border text-center font-bold">${cS}</td>
-                    <td class="p-1 border text-center font-bold">${cI}</td>
-                    <td class="p-1 border text-center font-bold">${cA}</td>
-                    <td class="p-1 border text-center font-bold">${cT}</td>
+                    <td class="p-1 border text-center font-bold">${cH === 0 ? '.' : cH}</td>
+                    <td class="p-1 border text-center font-bold">${cS === 0 ? '.' : cS}</td>
+                    <td class="p-1 border text-center font-bold">${cI === 0 ? '.' : cI}</td>
+                    <td class="p-1 border text-center font-bold">${cA === 0 ? '.' : cA}</td>
+                    <td class="p-1 border text-center font-bold">${cT === 0 ? '.' : cT}</td>
                 </tr>`;
             });
 
@@ -1629,11 +1629,11 @@
                     <td class="p-1 border font-medium"></td>
                     <td class="p-1 border text-center"></td>
                     ${dayCells}
-                    <td class="p-1 border text-center font-bold"></td>
-                    <td class="p-1 border text-center font-bold"></td>
-                    <td class="p-1 border text-center font-bold"></td>
-                    <td class="p-1 border text-center font-bold"></td>
-                    <td class="p-1 border text-center font-bold"></td>
+                    <td class="p-1 border text-center font-bold">.</td>
+                    <td class="p-1 border text-center font-bold">.</td>
+                    <td class="p-1 border text-center font-bold">.</td>
+                    <td class="p-1 border text-center font-bold">.</td>
+                    <td class="p-1 border text-center font-bold">.</td>
                 </tr>`;
             }
 
