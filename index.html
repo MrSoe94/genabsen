@@ -1609,6 +1609,27 @@
                 </tr>`;
             });
 
+            const MIN_ROWS = 28;
+            const blankRows = Math.max(0, MIN_ROWS - cls.students.length);
+            for (let i = 0; i < blankRows; i++) {
+                let dayCells = '';
+                for (let d = 1; d <= daysInMonth; d++) {
+                    dayCells += `<td class="p-0.5 border text-center text-[10px]">.</td>`;
+                }
+                tableRows += `<tr class="border text-[10px]">
+                    <td class="p-1 border text-center">${cls.students.length + i + 1}</td>
+                    <td class="p-1 border text-center font-mono"></td>
+                    <td class="p-1 border font-medium"></td>
+                    <td class="p-1 border text-center"></td>
+                    ${dayCells}
+                    <td class="p-1 border text-center font-bold"></td>
+                    <td class="p-1 border text-center font-bold"></td>
+                    <td class="p-1 border text-center font-bold"></td>
+                    <td class="p-1 border text-center font-bold"></td>
+                    <td class="p-1 border text-center font-bold"></td>
+                </tr>`;
+            }
+
             const docHTML = `
                 <div class="text-center border-b-2 border-black pb-3 mb-4">
                     <h2 class="text-xl font-bold uppercase tracking-wide">${schoolName}</h2>
